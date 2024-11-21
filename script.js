@@ -7,31 +7,34 @@
 // ==/UserScript==
 
 if (window.location.pathname.match(/^\/user\/[^\/]+$/)) {
-    // 动态加载 Chart.js
+    // Chart.js
     const script = document.createElement("script");
     script.src = "https://cdn.jsdelivr.net/npm/chart.js";
     script.onload = () => {
-        fetchDataAndInitChart();
+        fetchDataAndcreateChart();
     };
     document.head.appendChild(script);
 
     const pathname = location.pathname;
     const userId = pathname.split('/').pop();
+    const isMobile = /Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const width = isMobile ? '349px' : '258px';
+    const height = '258px';
 
-    // 容器
+    // Container
     const container = document.createElement("div");
     container.className = "SidePanel";
     container.style.position = "relative"
     const pinnedLayout = document.getElementById('pinnedLayout');
     pinnedLayout.parentNode.insertBefore(container, pinnedLayout);
-    // 创建并插入 canvas 容器
+    // canvas
     const canvas = document.createElement("canvas");
-    canvas.id = "myChart";
-    canvas.style.width = "258px";
-    canvas.style.height = "258px";
+    canvas.id = "anime-routine";
+    canvas.style.width = width;
+    canvas.style.height = height;
     canvas.style.borderRadius = '8px';
     container.appendChild(canvas);
-    // 时间选择
+    // select
     const selector = document.createElement("select");
     selector.id = "selector";
     selector.style.borderRadius = '6px';
@@ -56,20 +59,20 @@ if (window.location.pathname.match(/^\/user\/[^\/]+$/)) {
         selector.appendChild(option);
     })
     selector.addEventListener('input', () => {
-        fetchDataAndInitChart();
+        fetchDataAndcreateChart();
     })
     container.appendChild(selector);
-    // 加载圈
+    // loading
     const loader = document.createElement('div');
     loader.style.position = "absolute";
-    loader.style.width = "258px";
-    loader.style.height = "258px";
+    loader.style.width = width;
+    loader.style.height = height;
     loader.style.top = "45px";
     loader.style.zIndex = '10';
     loader.style.backgroundColor = 'rgba(255, 255, 255, 0.7)';
     loader.style.display = 'none';
     loader.innerHTML = `
-        <div style="position: relative; top: 94px; left: 94px; width: 50px; height: 50px; border: 3px solid #f3f3f3; border-top: 5px solid #FF6384; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+        <div style="position: relative; top: ${94}px; left: ${isMobile ? 140 : 94}px; width: 50px; height: 50px; border: 3px solid #f3f3f3; border-top: 5px solid #FF6384; border-radius: 50%; animation: spin 1s linear infinite;"></div>
         <style>
             @keyframes spin {
                 0% { transform: rotate(0deg); }
@@ -78,48 +81,45 @@ if (window.location.pathname.match(/^\/user\/[^\/]+$/)) {
         </style>
     `;
     container.appendChild(loader);
-    // 标题
+    // title
     const title = document.createElement("h2");
     title.textContent = `${userId} ${selector.options[selector.selectedIndex].text}的动画观看作息`;
     container.insertBefore(title, canvas);
-    // 查询失败
+    // fetch failed
     const failed = document.createElement('div');
     failed.textContent = "查询失败，可能是服务器暂时关闭了";
     failed.style.position = "absolute";
-    failed.style.width = "258px";
-    failed.style.height = "258px";
+    failed.style.width = width;
+    failed.style.height = height;
     failed.style.top = "45px";
     failed.style.textAlign = "center";
-    failed.style.lineHeight = "258px";
+    failed.style.lineHeight = height;
     failed.style.fontWeight = "bold";
     failed.style.fontSize = "14px";
     failed.style.display = 'none';
     container.appendChild(failed);
 
-    // 调 api
-    function fetchDataAndInitChart() {
+    // fetch
+    function fetchDataAndcreateChart() {
         showLoader();
         title.textContent = `${userId} ${selector.options[selector.selectedIndex].text}的动画观看作息`;
 
-        const url = `http://127.0.0.1:5000/timeline?userid=${userId}&range=${selector.options[selector.selectedIndex].value}`;
+        const url = `https://search.bgmss.fun/timeline?userid=${userId}&range=${selector.options[selector.selectedIndex].value}`;
 
         if (sessionStorage.getItem(url)) {
             const hours = JSON.parse(sessionStorage.getItem(url));
-            initChart(hours);
+            createChart(hours);
             hideLoader();
             return;
         }
 
         fetch(url)
             .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
                 return response.json();
             })
             .then(data => {
                 sessionStorage.setItem(url, JSON.stringify(data.hours));
-                initChart(data.hours);
+                createChart(data.hours);
                 hideLoader();
             })
             .catch(() => {
@@ -131,14 +131,14 @@ if (window.location.pathname.match(/^\/user\/[^\/]+$/)) {
             });
     }
 
+    // create chart
     let chart = null;
-    // 初始化图表
-    function initChart(hours) {
+    function createChart(hours) {
         if (chart) {
             chart.destroy();
         }
 
-        const ctx = document.getElementById('myChart').getContext('2d');
+        const ctx = document.getElementById('anime-routine').getContext('2d');
         const gradient = ctx.createLinearGradient(0, 0, 400, 0);
         gradient.addColorStop(0, 'rgba(255, 99, 132, 0.7)');
         gradient.addColorStop(1, 'rgba(54, 162, 235, 0.7)');
@@ -154,6 +154,8 @@ if (window.location.pathname.match(/^\/user\/[^\/]+$/)) {
                 }]
             },
             options: {
+                responsive: false, 
+                maintainAspectRatio: false, 
                 scales: {
                     x: {
                         ticks: {
@@ -176,7 +178,7 @@ if (window.location.pathname.match(/^\/user\/[^\/]+$/)) {
                                 }
                                 return 'transparent';
                             },
-                            drawTicks: true // 保留刻度线
+                            drawTicks: true
                         }
                     }
                 }
