@@ -4,8 +4,6 @@ from bs4 import BeautifulSoup
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
-semaphore = asyncio.Semaphore(5)
-
 headers = {
     'User-Agent': 'AcuL/Bangumi-Timeline-Stats/1.0 (Web) (https://github.com/AcuLY/Bangumi-Timeline-Stats)'
 }
@@ -28,10 +26,9 @@ def parse_datetime(response: httpx.Response) -> list[datetime]:
 
 
 async def fetch(client: httpx.AsyncClient, url: str, params: dict):
-    async with semaphore:
-        response = await client.get(url, params=params)
-        await asyncio.sleep(0.5)
-        return response
+    response = await client.get(url, params=params)
+    await asyncio.sleep(0.5)
+    return response
 
 
 async def fetch_timelines_by_pages(client: httpx.AsyncClient, user_id: str, pages: int) -> list[datetime]:

@@ -83,7 +83,7 @@ if (window.location.pathname.match(/^\/user\/[^\/]+$/)) {
     container.appendChild(loader);
     // title
     const title = document.createElement("h2");
-    title.textContent = `${userId} ${selector.options[selector.selectedIndex].text}的动画观看作息`;
+    title.textContent = `${userId} ${selector.options[selector.selectedIndex].text}的点格子作息`;
     container.insertBefore(title, canvas);
     // fetch failed
     const failed = document.createElement('div');
@@ -102,7 +102,7 @@ if (window.location.pathname.match(/^\/user\/[^\/]+$/)) {
     // fetch
     function fetchDataAndcreateChart() {
         showLoader();
-        title.textContent = `${userId} ${selector.options[selector.selectedIndex].text}的动画观看作息`;
+        title.textContent = `${userId} ${selector.options[selector.selectedIndex].text}的点格子作息`;
 
         const url = `https://search.bgmss.fun/timeline?userid=${userId}&range=${selector.options[selector.selectedIndex].value}`;
 
@@ -148,7 +148,7 @@ if (window.location.pathname.match(/^\/user\/[^\/]+$/)) {
             data: {
                 labels: ['0 点', '1 点', '2 点', '3 点', '4 点', '5 点', '6 点', '7 点', '8 点', '9 点', '10 点', '11 点', '12 点', '13 点', '14 点', '15 点', '16 点', '17 点', '18 点', '19 点', '20 点', '21 点', '22 点', '23 点'],
                 datasets: [{
-                    label: `观看集数（共${hours.reduce((sum, value) => sum + value, 0)}集）`,
+                    label: `点格子数（共${hours.reduce((sum, value) => sum + value, 0)}次）`,
                     data: hours,
                     backgroundColor: gradient
                 }]
