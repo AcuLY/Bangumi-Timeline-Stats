@@ -1,16 +1,10 @@
-import logging
+import logger
 from quart import Quart, jsonify, request
 from quart_cors import cors
 from api import fetch_hours
 from datetime import datetime
-
-# 设置日志
-logging.basicConfig(
-    filename='app.log', 
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
+from cache import get_cache, set_cache
+from logger import logger
 
 app = Quart(__name__)
 
@@ -22,18 +16,28 @@ async def get_statistics():
     fetch_range = request.args.get('range')
 
     log_message_query = f"查询: user_id={user_id}, range={fetch_range}"
-    logging.info(log_message_query)
+    logger.info(log_message_query)
     print(f"\033[1;34m{datetime.now()} {log_message_query}\033[0m")
 
     try:
-        hours = await fetch_hours(user_id, fetch_range)
-        log_message_success = f"成功: user_id={user_id}, range={fetch_range}, hours={hours}"
-        logging.info(log_message_success)
+        key = user_id + fetch_range
+        result = get_cache(key)
+        
+        if result:
+            log_message_success = f"成功（缓存）: user_id={user_id}, range={fetch_range}, hours={result}"
+        else:
+            result = await fetch_hours(user_id, fetch_range)
+            set_cache(key, result)
+            
+            log_message_success = f"成功: user_id={user_id}, range={fetch_range}, hours={result}"
+    
+        logger.info(log_message_success)
         print(f"\033[1;32m{datetime.now()} {log_message_success}\033[0m")
-        return jsonify({'hours': hours})
+        
+        return jsonify({'hours': result})
     except Exception as e:
         log_message_error = f"错误: user_id={user_id}, range={fetch_range}, error={str(e)}"
-        logging.error(log_message_error)
+        logger.error(log_message_error)
         print(f"\033[1;31m{datetime.now()} {log_message_error}\033[0m")
         return jsonify({'error': 'Internal Server Error'}), 500
 
