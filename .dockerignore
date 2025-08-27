@@ -1,0 +1,5 @@
+__pycache__
+.vscode
+logs
+script.js
+.gitignore
