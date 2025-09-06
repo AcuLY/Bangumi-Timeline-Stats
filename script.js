@@ -3,9 +3,17 @@
 // @description  统计时间线的 24 小时分布数据
 // @version      1.1
 // @author       AcuL
+// @match        *://bgm.tv/user/*
+// @match        *://bangumi.tv/user/*
+// @match        *://chii.in/user/* 
 // ==/UserScript==
 
 if (window.location.pathname.match(/^\/user\/[^\/]+$/)) {
+	// timezone
+	const TZ_COOKIE_KEY = 'bgm_timeline_tz'
+	const DEFAULT_TZ = 'GMT+8'
+	let selectedTZ = getCookie(TZ_COOKIE_KEY) || DEFAULT_TZ
+
 	// Chart.js
 	const script = document.createElement('script')
 	script.src = 'https://cdn.jsdelivr.net/npm/chart.js'
@@ -25,7 +33,7 @@ if (window.location.pathname.match(/^\/user\/[^\/]+$/)) {
 
 	// chart
 	const chartContainer = document.createElement('div')
-    chartContainer.style.position = 'relative'
+	chartContainer.style.position = 'relative'
 	chartContainer.style.height = `${height}px`
 	container.appendChild(chartContainer)
 
@@ -36,13 +44,20 @@ if (window.location.pathname.match(/^\/user\/[^\/]+$/)) {
 	canvas.style.marginBottom = '8px'
 	chartContainer.appendChild(canvas)
 
-	// select
-	const selector = document.createElement('select')
-	selector.id = 'selector'
-	selector.style.borderRadius = '6px'
-	selector.style.padding = '2px'
-	selector.style.color = 'rgba(54, 162, 235)'
-	selector.style.borderColor = 'rgba(54, 162, 235, 0.2)'
+	// selector container
+	const selectorContainer = document.createElement('div')
+	selectorContainer.style.marginTop = '6px'
+	selectorContainer.style.display = 'flex'
+	selectorContainer.style.flexDirection = 'column'
+	container.appendChild(selectorContainer)
+
+	// range selector
+	const rangeSelector = document.createElement('select')
+	rangeSelector.id = 'selector'
+	rangeSelector.style.borderRadius = '6px'
+	rangeSelector.style.padding = '2px'
+	rangeSelector.style.color = 'rgba(54, 162, 235)'
+	rangeSelector.style.borderColor = 'rgba(54, 162, 235, 0.2)'
 	const options = [
 		{ value: '7d', text: '最近一周' },
 		{ value: '1m', text: '最近一个月' },
@@ -59,13 +74,69 @@ if (window.location.pathname.match(/^\/user\/[^\/]+$/)) {
 		const el = document.createElement('option')
 		el.value = o.value
 		el.text = o.text
-		selector.appendChild(el)
+		rangeSelector.appendChild(el)
 	})
 
-	selector.addEventListener('input', () => {
+	rangeSelector.addEventListener('input', () => {
 		fetchDataAndCreateChart()
 	})
-	container.appendChild(selector)
+	selectorContainer.appendChild(rangeSelector)
+
+	// timezone selector
+	const tzSelector = document.createElement('select')
+	tzSelector.id = 'tz-selector'
+	Object.assign(tzSelector.style, {
+		borderRadius: '6px',
+		padding: '2px',
+		color: 'rgba(54, 162, 235)',
+		borderColor: 'rgba(54, 162, 235, 0.2)',
+		marginTop: '6px',
+	})
+
+	const TZ_OPTIONS = [
+		{ value: 'GMT-12', text: 'GMT-12（国际日期变更线西）' },
+		{ value: 'GMT-11', text: 'GMT-11（美属萨摩亚，中途岛）' },
+		{ value: 'GMT-10', text: 'GMT-10（夏威夷）' },
+		{ value: 'GMT-9', text: 'GMT-9（阿拉斯加）' },
+		{ value: 'GMT-8', text: 'GMT-8（太平洋时间，加州、西雅图）' },
+		{ value: 'GMT-7', text: 'GMT-7（山地时间，丹佛、亚利桑那）' },
+		{ value: 'GMT-6', text: 'GMT-6（中部时间，芝加哥、墨西哥城）' },
+		{ value: 'GMT-5', text: 'GMT-5（东部时间，纽约、多伦多）' },
+		{ value: 'GMT-4', text: 'GMT-4（大西洋时间，加勒比部分地区）' },
+		{ value: 'GMT-3', text: 'GMT-3（巴西、阿根廷）' },
+		{ value: 'GMT-2', text: 'GMT-2（南大西洋中部岛屿）' },
+		{ value: 'GMT-1', text: 'GMT-1（亚速尔群岛，佛得角）' },
+		{ value: 'GMT+0', text: 'GMT+0（格林尼治，伦敦）' },
+		{ value: 'GMT+1', text: 'GMT+1（中欧时间，巴黎、柏林）' },
+		{ value: 'GMT+2', text: 'GMT+2（东欧时间，雅典、开罗）' },
+		{ value: 'GMT+3', text: 'GMT+3（莫斯科，伊斯坦布尔）' },
+		{ value: 'GMT+4', text: 'GMT+4（迪拜，阿布扎比）' },
+		{ value: 'GMT+5', text: 'GMT+5（巴基斯坦，卡拉奇）' },
+		{ value: 'GMT+6', text: 'GMT+6（哈萨克斯坦，阿拉木图）' },
+		{ value: 'GMT+7', text: 'GMT+7（泰国，曼谷；越南，河内）' },
+		{ value: 'GMT+8', text: 'GMT+8（中国，北京；新加坡；香港）' },
+		{ value: 'GMT+9', text: 'GMT+9（日本，东京；韩国，首尔）' },
+		{ value: 'GMT+10', text: 'GMT+10（澳大利亚，悉尼；关岛）' },
+		{ value: 'GMT+11', text: 'GMT+11（所罗门群岛，新喀里多尼亚）' },
+		{ value: 'GMT+12', text: 'GMT+12（斐济，新西兰，奥克兰）' },
+	]
+
+	TZ_OPTIONS.forEach(o => {
+		const el = document.createElement('option')
+		el.value = o.value
+		el.text = o.text
+		tzSelector.appendChild(el)
+	})
+	tzSelector.value = selectedTZ
+
+	tzSelector.addEventListener('input', () => {
+		selectedTZ = tzSelector.value
+		setCookie(TZ_COOKIE_KEY, selectedTZ)
+		// 重新绘图（利用现有缓存原始 hours）
+		fetchDataAndCreateChart()
+	})
+
+	selectorContainer.appendChild(tzSelector)
 
 	// loading
 	// 外层遮罩
@@ -74,7 +145,7 @@ if (window.location.pathname.match(/^\/user\/[^\/]+$/)) {
 		position: 'absolute',
 		top: 0,
 		left: 0,
-        inset: '0', 
+		inset: '0',
 		backgroundColor: 'rgba(120, 120, 120, 0.26)',
 		zIndex: 10,
 		display: 'flex',
@@ -109,9 +180,9 @@ to { transform: rotate(360deg); }
 	document.head.appendChild(style)
 	chartContainer.appendChild(loaderWrapper)
 
-    // title
+	// title
 	const title = document.createElement('h2')
-	title.textContent = `${userId} ${selector.options[selector.selectedIndex].text}的点格子作息`
+	title.textContent = `${userId} ${rangeSelector.options[rangeSelector.selectedIndex].text}的点格子作息`
 	container.insertBefore(title, chartContainer)
 
 	// fetch failed
@@ -218,15 +289,15 @@ to { transform: rotate(360deg); }
 	// fetch
 	async function fetchDataAndCreateChart() {
 		showLoader()
-		title.textContent = `${userId} ${selector.options[selector.selectedIndex].text}的点格子作息`
+		title.textContent = `${userId} ${rangeSelector.options[rangeSelector.selectedIndex].text}的点格子作息`
 
-		const url = `https://search.bgmss.fun/timeline?userid=${userId}&range=${
-			selector.options[selector.selectedIndex].value
-		}`
+		const url = `https://search.bgmss.fun/timeline?userid=${userId}&range=${rangeSelector.options[rangeSelector.selectedIndex].value
+			}`
 
 		if (sessionStorage.getItem(url)) {
 			const hours = JSON.parse(sessionStorage.getItem(url))
-			createChart(hours)
+			const adjusted = toSelectedTZ(hours)
+			createChart(adjusted)
 			hideLoader()
 			return
 		}
@@ -237,7 +308,8 @@ to { transform: rotate(360deg); }
 				const result = await resp.json()
 
 				sessionStorage.setItem(url, JSON.stringify(result.hours))
-				createChart(result.hours)
+				const adjusted = toSelectedTZ(result.hours)
+				createChart(adjusted)
 			} catch (e) {
 				console.log('点格子作息表：' + e.message)
 
@@ -260,12 +332,47 @@ to { transform: rotate(360deg); }
 
 	function showLoader() {
 		loaderWrapper.style.display = 'block'
-		selector.disabled = true
+		rangeSelector.disabled = true
 	}
 
 	function hideLoader() {
 		loaderWrapper.style.display = 'none'
-		selector.disabled = false
+		rangeSelector.disabled = false
 		failed.style.display = 'none'
+	}
+
+	function setCookie(name, value, days = 365) {
+		const d = new Date()
+		d.setTime(d.getTime() + days * 24 * 60 * 60 * 1000)
+		document.cookie = `${name}=${encodeURIComponent(value)};expires=${d.toUTCString()};path=/`
+	}
+
+	function getCookie(name) {
+		const m = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'))
+		return m ? decodeURIComponent(m[2]) : ''
+	}
+
+	// 'GMT+8' -> 8, 'GMT-3' -> -3
+	function parseGmtHour(s) {
+		const m = String(s).match(/^GMT([+-]\d{1,2}|0)$/i)
+		if (!m) return 0
+		return parseInt(m[1], 10)
+	}
+
+	// 将 24 长度数组按 delta（整点）轮转：正数向右，负数向左
+	function rotateHours(hours, delta) {
+		const k = ((delta % 24) + 24) % 24
+		if (k === 0) return hours.slice()
+		const n = hours.length, res = new Array(n)
+		for (let i = 0; i < n; i++) res[(i + k) % n] = hours[i]
+		return res
+	}
+
+	// 从“基准中国时区 GMT+8”换算到 selectedTZ
+	function toSelectedTZ(hours) {
+		const base = parseGmtHour(DEFAULT_TZ) // 8
+		const cur = parseGmtHour(selectedTZ)
+		const delta = cur - base
+		return rotateHours(hours, delta)
 	}
 }
