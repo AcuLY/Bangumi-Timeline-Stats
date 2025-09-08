@@ -5,7 +5,7 @@
 // @author       AcuL
 // @match        *://bgm.tv/user/*
 // @match        *://bangumi.tv/user/*
-// @match        *://chii.in/user/* 
+// @match        *://chii.in/user/*
 // ==/UserScript==
 
 if (window.location.pathname.match(/^\/user\/[^\/]+$/)) {
@@ -95,33 +95,33 @@ if (window.location.pathname.match(/^\/user\/[^\/]+$/)) {
 
 	const TZ_OPTIONS = [
 		{ value: 'GMT-12', text: 'GMT-12（国际日期变更线西）' },
-		{ value: 'GMT-11', text: 'GMT-11（美属萨摩亚，中途岛）' },
-		{ value: 'GMT-10', text: 'GMT-10（夏威夷）' },
-		{ value: 'GMT-9', text: 'GMT-9（阿拉斯加）' },
-		{ value: 'GMT-8', text: 'GMT-8（太平洋时间，加州、西雅图）' },
-		{ value: 'GMT-7', text: 'GMT-7（山地时间，丹佛、亚利桑那）' },
-		{ value: 'GMT-6', text: 'GMT-6（中部时间，芝加哥、墨西哥城）' },
-		{ value: 'GMT-5', text: 'GMT-5（东部时间，纽约、多伦多）' },
-		{ value: 'GMT-4', text: 'GMT-4（大西洋时间，加勒比部分地区）' },
-		{ value: 'GMT-3', text: 'GMT-3（巴西、阿根廷）' },
-		{ value: 'GMT-2', text: 'GMT-2（南大西洋中部岛屿）' },
+		{ value: 'GMT-11', text: 'GMT-11（萨摩亚标准时间，美属萨摩亚、中途岛）' },
+		{ value: 'GMT-10', text: 'GMT-10（夏威夷标准时间）' },
+		{ value: 'GMT-9', text: 'GMT-9（阿拉斯加标准时间）' },
+		{ value: 'GMT-8', text: 'GMT-8（太平洋标准时间，美国西海岸）' },
+		{ value: 'GMT-7', text: 'GMT-7（山地标准时间，美国落基山地区）' },
+		{ value: 'GMT-6', text: 'GMT-6（中部标准时间，美国中部、墨西哥城）' },
+		{ value: 'GMT-5', text: 'GMT-5（东部标准时间，美国东部、加拿大安大略）' },
+		{ value: 'GMT-4', text: 'GMT-4（大西洋标准时间，加勒比地区）' },
+		{ value: 'GMT-3', text: 'GMT-3（阿根廷、巴西利亚时间）' },
+		{ value: 'GMT-2', text: 'GMT-2（南大西洋岛屿，亚森松岛）' },
 		{ value: 'GMT-1', text: 'GMT-1（亚速尔群岛，佛得角）' },
-		{ value: 'GMT+0', text: 'GMT+0（格林尼治，伦敦）' },
-		{ value: 'GMT+1', text: 'GMT+1（中欧时间，巴黎、柏林）' },
-		{ value: 'GMT+2', text: 'GMT+2（东欧时间，雅典、开罗）' },
-		{ value: 'GMT+3', text: 'GMT+3（莫斯科，伊斯坦布尔）' },
-		{ value: 'GMT+4', text: 'GMT+4（迪拜，阿布扎比）' },
-		{ value: 'GMT+5', text: 'GMT+5（巴基斯坦，卡拉奇）' },
-		{ value: 'GMT+6', text: 'GMT+6（哈萨克斯坦，阿拉木图）' },
-		{ value: 'GMT+7', text: 'GMT+7（泰国，曼谷；越南，河内）' },
-		{ value: 'GMT+8', text: 'GMT+8（中国，北京；新加坡；香港）' },
-		{ value: 'GMT+9', text: 'GMT+9（日本，东京；韩国，首尔）' },
-		{ value: 'GMT+10', text: 'GMT+10（澳大利亚，悉尼；关岛）' },
+		{ value: 'GMT+0', text: 'GMT+0（格林尼治标准时间，伦敦）' },
+		{ value: 'GMT+1', text: 'GMT+1（中欧时间，巴黎、柏林、罗马）' },
+		{ value: 'GMT+2', text: 'GMT+2（东欧时间，雅典、开罗、耶路撒冷）' },
+		{ value: 'GMT+3', text: 'GMT+3（莫斯科时间，伊斯坦布尔、利雅得）' },
+		{ value: 'GMT+4', text: 'GMT+4（海湾标准时间，迪拜、阿布扎比）' },
+		{ value: 'GMT+5', text: 'GMT+5（巴基斯坦标准时间，卡拉奇）' },
+		{ value: 'GMT+6', text: 'GMT+6（哈萨克斯坦、孟加拉国时间）' },
+		{ value: 'GMT+7', text: 'GMT+7（中南半岛时间，曼谷、河内、雅加达）' },
+		{ value: 'GMT+8', text: 'GMT+8（中国标准时间，北京、香港、新加坡）' },
+		{ value: 'GMT+9', text: 'GMT+9（日本标准时间，东京、首尔）' },
+		{ value: 'GMT+10', text: 'GMT+10（澳大利亚东部标准时间，悉尼、关岛）' },
 		{ value: 'GMT+11', text: 'GMT+11（所罗门群岛，新喀里多尼亚）' },
-		{ value: 'GMT+12', text: 'GMT+12（斐济，新西兰，奥克兰）' },
+		{ value: 'GMT+12', text: 'GMT+12（新西兰标准时间，奥克兰、斐济）' },
 	]
 
-	TZ_OPTIONS.forEach(o => {
+	TZ_OPTIONS.forEach((o) => {
 		const el = document.createElement('option')
 		el.value = o.value
 		el.text = o.text
@@ -182,7 +182,9 @@ to { transform: rotate(360deg); }
 
 	// title
 	const title = document.createElement('h2')
-	title.textContent = `${userId} ${rangeSelector.options[rangeSelector.selectedIndex].text}的点格子作息`
+	title.textContent = `${userId} ${
+		rangeSelector.options[rangeSelector.selectedIndex].text
+	}的点格子作息`
 	container.insertBefore(title, chartContainer)
 
 	// fetch failed
@@ -289,10 +291,13 @@ to { transform: rotate(360deg); }
 	// fetch
 	async function fetchDataAndCreateChart() {
 		showLoader()
-		title.textContent = `${userId} ${rangeSelector.options[rangeSelector.selectedIndex].text}的点格子作息`
+		title.textContent = `${userId} ${
+			rangeSelector.options[rangeSelector.selectedIndex].text
+		}的点格子作息`
 
-		const url = `https://search.bgmss.fun/timeline?userid=${userId}&range=${rangeSelector.options[rangeSelector.selectedIndex].value
-			}`
+		const url = `https://search.bgmss.fun/timeline?userid=${userId}&range=${
+			rangeSelector.options[rangeSelector.selectedIndex].value
+		}`
 
 		if (sessionStorage.getItem(url)) {
 			const hours = JSON.parse(sessionStorage.getItem(url))
@@ -363,7 +368,8 @@ to { transform: rotate(360deg); }
 	function rotateHours(hours, delta) {
 		const k = ((delta % 24) + 24) % 24
 		if (k === 0) return hours.slice()
-		const n = hours.length, res = new Array(n)
+		const n = hours.length,
+			res = new Array(n)
 		for (let i = 0; i < n; i++) res[(i + k) % n] = hours[i]
 		return res
 	}
