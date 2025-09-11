@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Bangumi-Timeline-Stats
+// @name         点格子作息表
 // @description  统计时间线的 24 小时分布数据
 // @version      1.1
 // @author       AcuL
@@ -159,7 +159,7 @@ if (window.location.pathname.match(/^\/user\/[^\/]+$/)) {
 		position: 'relative',
 		width: '50px',
 		height: '50px',
-		left: `calc(50% - 15px)`,
+		left: `calc(50% - 25px)`,
 		top: `${height / 2 - 25}px`,
 		border: '3px solid #f3f3f3',
 		borderTopColor: '#FF6384',
@@ -188,18 +188,16 @@ to { transform: rotate(360deg); }
 	container.insertBefore(title, chartContainer)
 
 	// fetch failed
-	const failed = document.createElement('div')
-	failed.textContent = '查询失败，可能是服务器暂时关闭了'
-	failed.style.position = 'absolute'
-	failed.style.width = `100%`
-	failed.style.height = `${height}px`
-	failed.style.top = '40px'
-	failed.style.textAlign = 'center'
-	failed.style.lineHeight = `${height}px`
-	failed.style.fontWeight = 'bold'
-	failed.style.fontSize = '14px'
-	failed.style.display = 'none'
-	chartContainer.appendChild(failed)
+	const failedText = document.createElement('div')
+	failedText.innerHTML = '查询失败，可能是网络不稳定<br>或服务器暂时关闭了'
+	failedText.style.position = 'absolute'
+	failedText.style.width = `100%`
+	failedText.style.height = `${height}px`
+	failedText.style.top = `${height / 2 - 14}px`
+	failedText.style.textAlign = 'center'
+	failedText.style.fontSize = '14px'
+	failedText.style.display = 'none'
+	chartContainer.appendChild(failedText)
 
 	// create chart
 	let chart = null
@@ -299,18 +297,30 @@ to { transform: rotate(360deg); }
 			rangeSelector.options[rangeSelector.selectedIndex].value
 		}`
 
-		if (sessionStorage.getItem(url)) {
-			const hours = JSON.parse(sessionStorage.getItem(url))
-			const adjusted = toSelectedTZ(hours)
-			createChart(adjusted)
-			hideLoader()
-			return
+		const cached = sessionStorage.getItem(url)
+		if (cached) {
+			try {
+				const hours = JSON.parse(sessionStorage.getItem(url))
+				const adjusted = toSelectedTZ(hours)
+				createChart(adjusted)
+				hideLoader()
+				return
+			} catch (e) {
+				console.log('点格子作息表：' + e.message)
+			}
 		}
 
-		for (let retry = 0; retry < 3; retry++) {
+		const MAX_RETRIES = 2
+		let failed = false
+
+		for (let retry = 0; retry < MAX_RETRIES; retry++) {
 			try {
 				const resp = await fetch(url)
 				const result = await resp.json()
+
+				if (!result.hours) {
+					throw '获取失败'
+				}
 
 				sessionStorage.setItem(url, JSON.stringify(result.hours))
 				const adjusted = toSelectedTZ(result.hours)
@@ -318,7 +328,8 @@ to { transform: rotate(360deg); }
 			} catch (e) {
 				console.log('点格子作息表：' + e.message)
 
-				if (retry < 2) {
+				if (retry < MAX_RETRIES - 1) {
+					await sleep(3000)
 					continue
 				}
 
@@ -326,14 +337,22 @@ to { transform: rotate(360deg); }
 					chart.destroy()
 				}
 
-				failed.style.display = 'block'
+				failed = true
 			}
 		}
 
 		hideLoader()
+
+		if (failed) {
+			failedText.style.display = 'block'
+		}
 	}
 
 	script.onload = fetchDataAndCreateChart
+
+	function sleep(ms) {
+		return new Promise((resolve) => setTimeout(resolve, ms))
+	}
 
 	function showLoader() {
 		loaderWrapper.style.display = 'block'
@@ -343,7 +362,7 @@ to { transform: rotate(360deg); }
 	function hideLoader() {
 		loaderWrapper.style.display = 'none'
 		rangeSelector.disabled = false
-		failed.style.display = 'none'
+		failedText.style.display = 'none'
 	}
 
 	function setCookie(name, value, days = 365) {

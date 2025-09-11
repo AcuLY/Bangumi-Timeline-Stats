@@ -8,6 +8,8 @@ headers = {
     'User-Agent': 'AcuL/Bangumi-Timeline-Stats/1.0 (Web) (https://github.com/AcuLY/Bangumi-Timeline-Stats)'
 }
 
+def user_url(user_id: str) -> str:
+    return f'https://bangumi.tv/user/{user_id}/timeline'
 
 def parse_datetime(response: httpx.Response) -> list[datetime]:
     response.encoding = 'utf-8'
@@ -32,7 +34,7 @@ async def fetch(client: httpx.AsyncClient, url: str, params: dict):
 
 
 async def fetch_timelines_by_pages(client: httpx.AsyncClient, user_id: str, pages: int) -> list[datetime]:
-    url = f"https://bgm.tv/user/{user_id}/timeline"
+    url = user_url(user_id)
     tasks = [fetch(client, url, {'type': 'progress', 'page': page+1}) for page in range(pages)]
     responses = await asyncio.gather(*tasks)
     datetimes = []
@@ -43,7 +45,7 @@ async def fetch_timelines_by_pages(client: httpx.AsyncClient, user_id: str, page
 
 async def fetch_timelines_by_datetime(client: httpx.AsyncClient, user_id: str, due_date: datetime, step: int) -> list[datetime]:
     datetimes = []
-    url = f"https://bgm.tv/user/{user_id}/timeline"
+    url = user_url(user_id)
     begin_page = 1
     while True:
         tasks = tasks = [fetch(client, url, {'type': 'progress', 'page': page}) for page in range(begin_page, begin_page + step)]

@@ -2,34 +2,35 @@ import logging
 import os
 from logging.handlers import TimedRotatingFileHandler
 from datetime import datetime
+import shutil
 
-# 自定义日志路径：logs/YYYY-MM/DD.log
-def get_log_path():
-    now = datetime.now()
-    folder = now.strftime("logs/%Y-%m")   # 按月份建文件夹
-    os.makedirs(folder, exist_ok=True)
-    file = now.strftime("%d.log")         # 按日存文件
-    return os.path.join(folder, file)
+os.makedirs("logs", exist_ok=True)
 
-log_path = get_log_path()
-
-# 设置 handler（每天一个文件）
 handler = TimedRotatingFileHandler(
-    filename=log_path,
-    when="midnight",  # 每天切分
-    interval=1,
-    backupCount=7,    # 保留多少天的日志
-    encoding="utf-8"
+    filename="logs/app.log",
+    when="midnight",
+    encoding="utf-8",
 )
 
-# 设置日志格式
 formatter = logging.Formatter(
-    fmt="%(asctime)s - %(levelname)s - %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S"
+    "%(asctime)s - %(levelname)s - %(message)s",
+    "%Y-%m-%d %H:%M:%S"
 )
 handler.setFormatter(formatter)
 
-# 配置 root logger
+def namer(default_name: str) -> str:
+    # default_name: logs/app.log.YYYY-MM-DD
+    date_str = default_name.rsplit(".", 1)[-1]  # YYYY-MM-DD
+    dt = datetime.strptime(date_str, "%Y-%m-%d")
+    return os.path.join("logs", dt.strftime("%Y-%m"), dt.strftime("%d.log"))
+
+def rotator(source: str, dest: str) -> None:
+    os.makedirs(os.path.dirname(dest), exist_ok=True)
+    shutil.move(source, dest)
+
+handler.namer = namer
+handler.rotator = rotator
+
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 logger.addHandler(handler)

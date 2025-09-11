@@ -23,7 +23,7 @@ async def get_statistics():
         key = user_id + fetch_range
         result = get_cache(key)
         
-        if result:
+        if result is not None:
             log_message_success = f"成功（缓存）: user_id={user_id}, range={fetch_range}, hours={result}"
         else:
             result = await fetch_hours(user_id, fetch_range)
@@ -36,10 +36,16 @@ async def get_statistics():
         
         return jsonify({'hours': result})
     except Exception as e:
-        log_message_error = f"错误: user_id={user_id}, range={fetch_range}, error={str(e)}"
-        logger.error(log_message_error)
-        print(f"\033[1;31m{datetime.now()} {log_message_error}\033[0m")
-        return jsonify({'error': 'Internal Server Error'}), 500
+        logger.exception("错误: user_id=%s, range=%s", user_id, fetch_range)
+
+        print(
+            f"\033[1;31m{datetime.now()} 错误: user_id={user_id}, range={fetch_range}, "
+            f"{type(e).__name__}: {e!r}\033[0m"
+        )
+
+        return jsonify({
+            'error': f'Internal Server Error: {type(e).__name__}: {str(e) or repr(e)}'
+        }), 500
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5000)
