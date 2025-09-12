@@ -310,7 +310,7 @@ to { transform: rotate(360deg); }
 			}
 		}
 
-		const MAX_RETRIES = 2
+		const MAX_RETRIES = 3
 		let failed = false
 
 		for (let retry = 0; retry < MAX_RETRIES; retry++) {
@@ -325,6 +325,8 @@ to { transform: rotate(360deg); }
 				sessionStorage.setItem(url, JSON.stringify(result.hours))
 				const adjusted = toSelectedTZ(result.hours)
 				createChart(adjusted)
+
+				break
 			} catch (e) {
 				console.log('点格子作息表：' + e.message)
 

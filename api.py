@@ -29,7 +29,7 @@ def parse_datetime(response: httpx.Response) -> list[datetime]:
 
 async def fetch(client: httpx.AsyncClient, url: str, params: dict):
     response = await client.get(url, params=params)
-    await asyncio.sleep(0.5)
+    await asyncio.sleep(0.1)
     return response
 
 

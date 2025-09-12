@@ -24,7 +24,7 @@ async def get_statistics():
         result = get_cache(key)
         
         if result is not None:
-            log_message_success = f"成功（缓存）: user_id={user_id}, range={fetch_range}, hours={result}"
+            log_message_success = f"缓存: user_id={user_id}, range={fetch_range}, hours={result}"
         else:
             result = await fetch_hours(user_id, fetch_range)
             set_cache(key, result)
@@ -36,7 +36,11 @@ async def get_statistics():
         
         return jsonify({'hours': result})
     except Exception as e:
-        logger.exception("错误: user_id=%s, range=%s", user_id, fetch_range)
+        log_message_error = (
+            f"错误: user_id={user_id}, range={fetch_range}, "
+            f"{type(e).__name__}: {str(e) or repr(e)}"
+        )
+        logger.error(log_message_error)
 
         print(
             f"\033[1;31m{datetime.now()} 错误: user_id={user_id}, range={fetch_range}, "
