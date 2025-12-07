@@ -187,6 +187,32 @@ to { transform: rotate(360deg); }
 	}的点格子作息`
 	container.insertBefore(title, chartContainer)
 
+	// updated at container
+	const updatedAtContainer = document.createElement('div')
+	updatedAtContainer.style.width = '100%'
+	updatedAtContainer.style.display = 'flex'
+	updatedAtContainer.style.justifyContent = 'space-between'
+	updatedAtContainer.style.alignItems = 'center'
+	container.insertBefore(updatedAtContainer, chartContainer)
+
+	// updated at
+	const updatedAt = document.createElement('p')
+	updatedAt.textContent = '更新于：'
+	updatedAt.style.color = '#888'
+	updatedAtContainer.appendChild(updatedAt)
+
+	// refresh button
+	const refreshButton = document.createElement('button')
+	refreshButton.textContent = '⟳'
+	refreshButton.style.fontSize = '16px'
+	refreshButton.style.color = '#aaa'
+	refreshButton.style.backgroundColor = 'transparent'
+	refreshButton.style.border = 'solid 1px #88888846'
+	refreshButton.style.borderRadius = '6px'
+	refreshButton.style.cursor = 'pointer'
+	refreshButton.onclick = () => fetchDataAndCreateChart(Date.now())
+	updatedAtContainer.appendChild(refreshButton)
+
 	// fetch failed
 	const failedText = document.createElement('div')
 	failedText.innerHTML = '查询失败，可能是网络不稳定<br>或服务器暂时关闭了'
@@ -286,8 +312,24 @@ to { transform: rotate(360deg); }
 		})
 	}
 
+	// update updated at
+	function editUpdatedAt(newTimestamp) {
+		newTimestamp *= 1000	// 后端是秒级时间戳
+		date = new Date(newTimestamp)
+
+		const y = date.getFullYear()
+		const m = String(date.getMonth() + 1).padStart(2, '0')
+		const d = String(date.getDate()).padStart(2, '0')
+		const hh = String(date.getHours()).padStart(2, '0')
+		const mm = String(date.getMinutes()).padStart(2, '0')
+		const ss = String(date.getSeconds()).padStart(2, '0')
+
+		const formatted = `${y}-${m}-${d} ${hh}:${mm}:${ss}`
+		updatedAt.textContent = `更新于：${formatted}`
+	}
+
 	// fetch
-	async function fetchDataAndCreateChart() {
+	async function fetchDataAndCreateChart(timestamp) {
 		showLoader()
 		title.textContent = `${userId} ${
 			rangeSelector.options[rangeSelector.selectedIndex].text
@@ -296,12 +338,16 @@ to { transform: rotate(360deg); }
 		const url = `https://search.bgmss.fun/timeline?userid=${userId}&range=${
 			rangeSelector.options[rangeSelector.selectedIndex].value
 		}`
+		if (timestamp) {
+			url += `&t=${timestamp}`
+		}
 
 		const cached = sessionStorage.getItem(url)
 		if (cached) {
 			try {
-				const hours = JSON.parse(sessionStorage.getItem(url))
-				const adjusted = toSelectedTZ(hours)
+				const result = JSON.parse(sessionStorage.getItem(url))
+				const adjusted = toSelectedTZ(result.hours)
+				editUpdatedAt(result.t)
 				createChart(adjusted)
 				hideLoader()
 				return
@@ -318,12 +364,13 @@ to { transform: rotate(360deg); }
 				const resp = await fetch(url)
 				const result = await resp.json()
 
-				if (!result.hours) {
+				if (!result.hours || !result.t) {
 					throw '获取失败'
 				}
 
-				sessionStorage.setItem(url, JSON.stringify(result.hours))
+				sessionStorage.setItem(url, JSON.stringify(result))
 				const adjusted = toSelectedTZ(result.hours)
+				editUpdatedAt(result.t)
 				createChart(adjusted)
 
 				break
@@ -350,13 +397,14 @@ to { transform: rotate(360deg); }
 		}
 	}
 
-	script.onload = fetchDataAndCreateChart
+	script.onload = () => fetchDataAndCreateChart()
 
 	function sleep(ms) {
 		return new Promise((resolve) => setTimeout(resolve, ms))
 	}
 
 	function showLoader() {
+		refreshButton.disabled = true
 		loaderWrapper.style.display = 'block'
 		rangeSelector.disabled = true
 	}
@@ -365,6 +413,7 @@ to { transform: rotate(360deg); }
 		loaderWrapper.style.display = 'none'
 		rangeSelector.disabled = false
 		failedText.style.display = 'none'
+		refreshButton.disabled = false
 	}
 
 	function setCookie(name, value, days = 365) {

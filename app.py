@@ -14,27 +14,33 @@ app = cors(app, allow_origin="*")
 async def get_statistics():
     user_id = request.args.get('userid')
     fetch_range = request.args.get('range')
+    timestamp = request.args.get('t')
 
-    log_message_query = f"查询: user_id={user_id}, range={fetch_range}"
+    log_message_query = f"查询: user_id={user_id}, range={fetch_range}, time={timestamp}"
     logger.info(log_message_query)
     print(f"\033[1;34m{datetime.now()} {log_message_query}\033[0m")
 
     try:
         key = user_id + fetch_range
-        result = get_cache(key)
+        result = None
+        # 仅当请求不带 t 时查询缓存
+        if timestamp is None:
+            result = get_cache(key) # result: {"hours": list[int], "t": datetime}
         
         if result is not None:
-            log_message_success = f"缓存: user_id={user_id}, range={fetch_range}, hours={result}"
+            log_message_success = f"缓存: user_id={user_id}, range={fetch_range}, hours={result["hours"]}, t={result["t"]}"
         else:
-            result = await fetch_hours(user_id, fetch_range)
+            hours = await fetch_hours(user_id, fetch_range)
+            now = int(datetime.now().timestamp())
+            result = {"hours": hours, "t": now}
             set_cache(key, result)
             
-            log_message_success = f"成功: user_id={user_id}, range={fetch_range}, hours={result}"
+            log_message_success = f"成功: user_id={user_id}, range={fetch_range}, hours={hours}, t={now}"
     
         logger.info(log_message_success)
         print(f"\033[1;32m{datetime.now()} {log_message_success}\033[0m")
         
-        return jsonify({'hours': result})
+        return jsonify({'hours': result["hours"], "t": result["t"]})
     except Exception as e:
         log_message_error = (
             f"错误: user_id={user_id}, range={fetch_range}, "
