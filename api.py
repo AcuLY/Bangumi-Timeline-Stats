@@ -1,7 +1,10 @@
-import httpx
 import asyncio
-from bs4 import BeautifulSoup
+import os
+import time
 from datetime import datetime
+
+import httpx
+from bs4 import BeautifulSoup
 from dateutil.relativedelta import relativedelta
 
 headers = {
@@ -15,8 +18,65 @@ timeout = httpx.Timeout(
 )
 
 
+def _read_env_int(name: str, default: int, minimum: int = 1) -> int:
+    try:
+        value = int(os.getenv(name, str(default)))
+    except (TypeError, ValueError):
+        return default
+    return max(minimum, value)
+
+
+def _read_env_float(name: str, default: float, minimum: float = 0.0) -> float:
+    try:
+        value = float(os.getenv(name, str(default)))
+    except (TypeError, ValueError):
+        return default
+    return max(minimum, value)
+
+
+OUTBOUND_MAX_CONCURRENCY = _read_env_int("OUTBOUND_MAX_CONCURRENCY", 4)
+REQUEST_INTERVAL_SECONDS = _read_env_float("REQUEST_INTERVAL_SECONDS", 0.35)
+
+MAX_PAGE_RANGE = 10
+MAX_DAY_RANGE = 7
+MAX_MONTH_RANGE = 6
+MAX_YEAR_RANGE = 1
+
+_outbound_semaphore = asyncio.Semaphore(OUTBOUND_MAX_CONCURRENCY)
+_request_interval_lock = asyncio.Lock()
+_next_request_time = 0.0
+
+
 def user_url(user_id: str) -> str:
     return f"https://bangumi.tv/user/{user_id}/timeline"
+
+
+def parse_fetch_range(fetch_range: str) -> tuple[str, int, str]:
+    if fetch_range.isdecimal():
+        pages = int(fetch_range)
+        if pages < 1 or pages > MAX_PAGE_RANGE:
+            raise ValueError(f"page range must be between 1 and {MAX_PAGE_RANGE}")
+        return ("pages", pages, "")
+
+    if len(fetch_range) < 2 or (not fetch_range[:-1].isdecimal()):
+        raise ValueError("range format is invalid")
+
+    value = int(fetch_range[:-1])
+    time_type = fetch_range[-1]
+
+    if time_type == "d":
+        if value < 1 or value > MAX_DAY_RANGE:
+            raise ValueError(f"day range must be between 1 and {MAX_DAY_RANGE}")
+    elif time_type == "m":
+        if value < 1 or value > MAX_MONTH_RANGE:
+            raise ValueError(f"month range must be between 1 and {MAX_MONTH_RANGE}")
+    elif time_type == "y":
+        if value < 1 or value > MAX_YEAR_RANGE:
+            raise ValueError(f"year range must be between 1 and {MAX_YEAR_RANGE}")
+    else:
+        raise ValueError("range unit must be one of d/m/y")
+
+    return ("time", value, time_type)
 
 
 def parse_datetime(response: httpx.Response) -> list[datetime]:
@@ -38,9 +98,19 @@ def parse_datetime(response: httpx.Response) -> list[datetime]:
 
 
 async def fetch(client: httpx.AsyncClient, url: str, params: dict):
-    await asyncio.sleep(0.1)
-    response = await client.get(url, params=params)
-    return response
+    global _next_request_time
+
+    async with _outbound_semaphore:
+        async with _request_interval_lock:
+            now = time.monotonic()
+            if now < _next_request_time:
+                await asyncio.sleep(_next_request_time - now)
+                now = time.monotonic()
+            _next_request_time = now + REQUEST_INTERVAL_SECONDS
+
+        response = await client.get(url, params=params)
+        response.raise_for_status()
+        return response
 
 
 async def fetch_timelines_by_pages(
@@ -65,8 +135,7 @@ async def fetch_timelines_by_datetime(
     url = user_url(user_id)
     begin_page = 1
     while True:
-        await asyncio.sleep(0.2)
-        tasks = tasks = [
+        tasks = [
             fetch(client, url, {"type": "progress", "page": page})
             for page in range(begin_page, begin_page + step)
         ]
@@ -93,18 +162,16 @@ async def fetch_timelines_by_datetime(
 
 
 async def fetch_hours(user_id: str, fetch_range: str) -> list[int]:
+    range_type, value, time_type = parse_fetch_range(fetch_range)
+
     async with httpx.AsyncClient(
-        headers=headers, limits=httpx.Limits(max_connections=5), timeout=timeout
+        headers=headers,
+        limits=httpx.Limits(max_connections=OUTBOUND_MAX_CONCURRENCY),
+        timeout=timeout,
     ) as client:
-        # 数量范围只包含数字
-        if fetch_range.isdecimal():
-            datetimes = await fetch_timelines_by_pages(
-                client, user_id, int(fetch_range)
-            )
+        if range_type == "pages":
+            datetimes = await fetch_timelines_by_pages(client, user_id, value)
         else:
-            # time_range 的格式为 %d%c 如 7d, 30d, 6m, 1y
-            value = int(fetch_range[:-1])
-            time_type = fetch_range[-1]
             now = datetime.now()
             if time_type == "d":
                 due_date = now - relativedelta(days=value)
