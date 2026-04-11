@@ -4,6 +4,16 @@ services:
     build:
       dockerfile: Dockerfile
       context: .
+    environment:
+      BANGUMI_BASE_URL: https://chii.in
+      HTTPX_CONNECT_TIMEOUT_SECONDS: 10
+      HTTPX_READ_TIMEOUT_SECONDS: 45
+      HTTPX_WRITE_TIMEOUT_SECONDS: 10
+      HTTPX_POOL_TIMEOUT_SECONDS: 30
+      OUTBOUND_MAX_CONCURRENCY: 2
+      REQUEST_INTERVAL_SECONDS: 1.0
+      REQUEST_RETRY_ATTEMPTS: 3
+      REQUEST_RETRY_BACKOFF_SECONDS: 1.5
     ports:
       - "8080:5000"
     volumes:

@@ -10,12 +10,6 @@ from dateutil.relativedelta import relativedelta
 headers = {
     "User-Agent": "AcuL/Bangumi-Timeline-Stats/1.0 (Web) (https://github.com/AcuLY/Bangumi-Timeline-Stats)"
 }
-timeout = httpx.Timeout(
-    connect=5.0,
-    read=30.0,
-    write=10.0,
-    pool=30.0,
-)
 
 
 def _read_env_int(name: str, default: int, minimum: int = 1) -> int:
@@ -34,8 +28,26 @@ def _read_env_float(name: str, default: float, minimum: float = 0.0) -> float:
     return max(minimum, value)
 
 
-OUTBOUND_MAX_CONCURRENCY = _read_env_int("OUTBOUND_MAX_CONCURRENCY", 4)
-REQUEST_INTERVAL_SECONDS = _read_env_float("REQUEST_INTERVAL_SECONDS", 0.35)
+BANGUMI_BASE_URL = os.getenv("BANGUMI_BASE_URL", "https://chii.in").rstrip("/")
+HTTPX_CONNECT_TIMEOUT_SECONDS = _read_env_float(
+    "HTTPX_CONNECT_TIMEOUT_SECONDS", 10.0
+)
+HTTPX_READ_TIMEOUT_SECONDS = _read_env_float("HTTPX_READ_TIMEOUT_SECONDS", 45.0)
+HTTPX_WRITE_TIMEOUT_SECONDS = _read_env_float("HTTPX_WRITE_TIMEOUT_SECONDS", 10.0)
+HTTPX_POOL_TIMEOUT_SECONDS = _read_env_float("HTTPX_POOL_TIMEOUT_SECONDS", 30.0)
+OUTBOUND_MAX_CONCURRENCY = _read_env_int("OUTBOUND_MAX_CONCURRENCY", 2)
+REQUEST_INTERVAL_SECONDS = _read_env_float("REQUEST_INTERVAL_SECONDS", 1.0)
+REQUEST_RETRY_ATTEMPTS = _read_env_int("REQUEST_RETRY_ATTEMPTS", 3)
+REQUEST_RETRY_BACKOFF_SECONDS = _read_env_float(
+    "REQUEST_RETRY_BACKOFF_SECONDS", 1.5
+)
+
+timeout = httpx.Timeout(
+    connect=HTTPX_CONNECT_TIMEOUT_SECONDS,
+    read=HTTPX_READ_TIMEOUT_SECONDS,
+    write=HTTPX_WRITE_TIMEOUT_SECONDS,
+    pool=HTTPX_POOL_TIMEOUT_SECONDS,
+)
 
 MAX_PAGE_RANGE = 10
 MAX_DAY_RANGE = 7
@@ -48,7 +60,7 @@ _next_request_time = 0.0
 
 
 def user_url(user_id: str) -> str:
-    return f"https://bangumi.tv/user/{user_id}/timeline"
+    return f"{BANGUMI_BASE_URL}/user/{user_id}/timeline"
 
 
 def parse_fetch_range(fetch_range: str) -> tuple[str, int, str]:
@@ -101,16 +113,26 @@ async def fetch(client: httpx.AsyncClient, url: str, params: dict):
     global _next_request_time
 
     async with _outbound_semaphore:
-        async with _request_interval_lock:
-            now = time.monotonic()
-            if now < _next_request_time:
-                await asyncio.sleep(_next_request_time - now)
+        last_error = None
+        for attempt in range(1, REQUEST_RETRY_ATTEMPTS + 1):
+            async with _request_interval_lock:
                 now = time.monotonic()
-            _next_request_time = now + REQUEST_INTERVAL_SECONDS
+                if now < _next_request_time:
+                    await asyncio.sleep(_next_request_time - now)
+                    now = time.monotonic()
+                _next_request_time = now + REQUEST_INTERVAL_SECONDS
 
-        response = await client.get(url, params=params)
-        response.raise_for_status()
-        return response
+            try:
+                response = await client.get(url, params=params)
+                response.raise_for_status()
+                return response
+            except (httpx.TimeoutException, httpx.TransportError) as exc:
+                last_error = exc
+                if attempt >= REQUEST_RETRY_ATTEMPTS:
+                    raise
+                await asyncio.sleep(REQUEST_RETRY_BACKOFF_SECONDS * attempt)
+
+        raise last_error
 
 
 async def fetch_timelines_by_pages(
