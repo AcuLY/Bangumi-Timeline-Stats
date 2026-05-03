@@ -28,7 +28,21 @@ def _read_env_float(name: str, default: float, minimum: float = 0.0) -> float:
     return max(minimum, value)
 
 
-BANGUMI_BASE_URL = os.getenv("BANGUMI_BASE_URL", "https://chii.in").rstrip("/")
+def _read_base_urls() -> list[str]:
+    raw_multi = os.getenv("BANGUMI_BASE_URLS", "")
+    if raw_multi.strip():
+        urls = [u.strip().rstrip("/") for u in raw_multi.split(",") if u.strip()]
+        if urls:
+            return urls
+
+    raw_single = os.getenv("BANGUMI_BASE_URL", "").strip().rstrip("/")
+    if raw_single:
+        return [raw_single]
+
+    return ["https://bangumi.tv", "https://chii.in"]
+
+
+BANGUMI_BASE_URLS = _read_base_urls()
 HTTPX_CONNECT_TIMEOUT_SECONDS = _read_env_float(
     "HTTPX_CONNECT_TIMEOUT_SECONDS", 10.0
 )
@@ -59,8 +73,8 @@ _request_interval_lock = asyncio.Lock()
 _next_request_time = 0.0
 
 
-def user_url(user_id: str) -> str:
-    return f"{BANGUMI_BASE_URL}/user/{user_id}/timeline"
+def user_urls(user_id: str) -> list[str]:
+    return [f"{base_url}/user/{user_id}/timeline" for base_url in BANGUMI_BASE_URLS]
 
 
 def parse_fetch_range(fetch_range: str) -> tuple[str, int, str]:
@@ -126,6 +140,13 @@ async def fetch(client: httpx.AsyncClient, url: str, params: dict):
                 response = await client.get(url, params=params)
                 response.raise_for_status()
                 return response
+            except httpx.HTTPStatusError as exc:
+                last_error = exc
+                if attempt >= REQUEST_RETRY_ATTEMPTS:
+                    raise
+                if exc.response.status_code not in (429, 500, 502, 503, 504):
+                    raise
+                await asyncio.sleep(REQUEST_RETRY_BACKOFF_SECONDS * attempt)
             except (httpx.TimeoutException, httpx.TransportError) as exc:
                 last_error = exc
                 if attempt >= REQUEST_RETRY_ATTEMPTS:
@@ -138,49 +159,65 @@ async def fetch(client: httpx.AsyncClient, url: str, params: dict):
 async def fetch_timelines_by_pages(
     client: httpx.AsyncClient, user_id: str, pages: int
 ) -> list[datetime]:
-    url = user_url(user_id)
-    tasks = [
-        fetch(client, url, {"type": "progress", "page": page + 1})
-        for page in range(pages)
-    ]
-    responses = await asyncio.gather(*tasks)
-    datetimes = []
-    for response in responses:
-        datetimes.extend(parse_datetime(response))
-    return datetimes
+    last_error = None
+    for url in user_urls(user_id):
+        try:
+            tasks = [
+                fetch(client, url, {"type": "progress", "page": page + 1})
+                for page in range(pages)
+            ]
+            responses = await asyncio.gather(*tasks)
+            datetimes = []
+            for response in responses:
+                datetimes.extend(parse_datetime(response))
+            return datetimes
+        except (httpx.TimeoutException, httpx.TransportError, httpx.HTTPStatusError) as exc:
+            last_error = exc
+
+    if last_error is not None:
+        raise last_error
+    return []
 
 
 async def fetch_timelines_by_datetime(
     client: httpx.AsyncClient, user_id: str, due_date: datetime, step: int
 ) -> list[datetime]:
-    datetimes = []
-    url = user_url(user_id)
-    begin_page = 1
-    while True:
-        tasks = [
-            fetch(client, url, {"type": "progress", "page": page})
-            for page in range(begin_page, begin_page + step)
-        ]
-        responses = await asyncio.gather(*tasks)
+    last_error = None
+    for url in user_urls(user_id):
+        try:
+            datetimes = []
+            begin_page = 1
+            while True:
+                tasks = [
+                    fetch(client, url, {"type": "progress", "page": page})
+                    for page in range(begin_page, begin_page + step)
+                ]
+                responses = await asyncio.gather(*tasks)
 
-        is_end = False
-        for response in responses:
-            parsed_datetime = parse_datetime(response)
-            if not parsed_datetime:
-                is_end = True
-                break
-            for dt in parsed_datetime:
-                if dt >= due_date:
-                    datetimes.append(dt)
-                else:
-                    is_end = True
-                    break
-            if is_end:
-                break
-        if is_end:
-            return datetimes
+                is_end = False
+                for response in responses:
+                    parsed_datetime = parse_datetime(response)
+                    if not parsed_datetime:
+                        is_end = True
+                        break
+                    for dt in parsed_datetime:
+                        if dt >= due_date:
+                            datetimes.append(dt)
+                        else:
+                            is_end = True
+                            break
+                    if is_end:
+                        break
+                if is_end:
+                    return datetimes
 
-        begin_page += step
+                begin_page += step
+        except (httpx.TimeoutException, httpx.TransportError, httpx.HTTPStatusError) as exc:
+            last_error = exc
+
+    if last_error is not None:
+        raise last_error
+    return []
 
 
 async def fetch_hours(user_id: str, fetch_range: str) -> list[int]:

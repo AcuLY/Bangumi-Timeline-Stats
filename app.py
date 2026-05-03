@@ -2,6 +2,7 @@ import asyncio
 import re
 from datetime import datetime
 
+import httpx
 from quart import Quart, jsonify, request
 from quart_cors import cors
 
@@ -102,6 +103,24 @@ async def get_statistics():
             f"{type(e).__name__}: {e!r}\033[0m"
         )
         return jsonify({"error": str(e)}), 400
+    except httpx.HTTPError as e:
+        log_message_error = (
+            f"上游错误: user_id={user_id}, range={fetch_range}, "
+            f"{type(e).__name__}: {str(e) or repr(e)}"
+        )
+        logger.error(log_message_error)
+        print(
+            f"\033[1;31m{datetime.now()} 上游错误: user_id={user_id}, range={fetch_range}, "
+            f"{type(e).__name__}: {e!r}\033[0m"
+        )
+        return jsonify(
+            {
+                "error": (
+                    f"Upstream Fetch Failed: {type(e).__name__}: "
+                    f"{str(e) or repr(e)}"
+                )
+            }
+        ), 502
     except Exception as e:
         log_message_error = (
             f"错误: user_id={user_id}, range={fetch_range}, "

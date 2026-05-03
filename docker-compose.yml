@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile
       context: .
     environment:
-      BANGUMI_BASE_URL: https://chii.in
+      BANGUMI_BASE_URLS: https://bangumi.tv,https://chii.in
       HTTPX_CONNECT_TIMEOUT_SECONDS: 10
       HTTPX_READ_TIMEOUT_SECONDS: 45
       HTTPX_WRITE_TIMEOUT_SECONDS: 10
